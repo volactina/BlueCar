@@ -1,0 +1,56 @@
+消息过滤器开发目的：
+确保小车之间传递消息后接受的消息是合法的，增加程序鲁棒性，避免由于人为或者在传输过程中出错而使得消息不符合后续处理程序的要求从而使得后续程序出错或崩溃
+
+程序样例
+
+bool is_correct(String s){
+  //判断该消息s是否合法
+  return true;
+}
+
+void setup(){
+  Serial.begin(9600);//启动串口
+  while (!Serial){}//等待串口启动完毕
+}
+
+void loop(){
+  String s="";
+  s=Serial.readString();
+  if (s!=""){
+  if (is_correct(s)){
+    Serial.println("Yes");
+  }else{
+    Serial.println("No");
+  }
+}
+}
+
+函数要求：
+1、消息s必须以P开始p结束
+2、消息s的结构如下合法：
+PA..aB..bC..c......Z..zp
+其中A..a（B..b等）中可以继续嵌套如上结构，但是不可以包含P或p
+测试数据
+PA1ap
+Yes
+
+PAp
+No
+
+PBAbp
+No
+
+PABbap
+Yes
+3、在大小写字母之间可以夹带数字
+如
+PA1aB1bp
+Yes
+但是这种情况不合法
+PAa1Bbp
+No
+
+开发要求
+尽量使用arduino的string，具体的使用参考https://www.arduino.cc/reference/en/language/variables/data-types/stringobject/
+具体要求会增加，所以尽量使得代码可以维护调整
+
