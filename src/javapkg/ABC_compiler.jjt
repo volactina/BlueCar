@@ -1,0 +1,1075 @@
+options {
+    STATIC = false;
+    MULTI = true;
+}
+PARSER_BEGIN(ABC_compiler)
+    package javapkg;
+  import java.util.ArrayList;
+  import java.util.HashMap;
+  import java.io.*;
+  import com.google.gson.Gson;
+    import com.google.gson.GsonBuilder;
+
+	public class ABC_compiler {
+
+    public HashMap<String, ArrayList<Command> > funcMap =
+               new HashMap<String, ArrayList<Command> >();
+        public ArrayList<Sentence> sentences=new ArrayList<Sentence>();
+        public ArrayList<Variable> variables=new ArrayList<Variable>();
+        public int scope = 0;
+        public static ABC_compiler compiler;
+
+        public static void main(String[] args)
+        throws ParseException, TokenMgrError,
+        NumberFormatException, FileNotFoundException, IOException {
+                compiler = new ABC_compiler(
+                                new FileInputStream("res/input.txt"));
+                compiler.init();
+                compiler.parse();
+        }
+
+        public void init() {
+            funcMap.clear();
+            sentences.clear();
+            variables.clear();
+            scope = 0;
+        }
+        public void parse() throws IOException {
+    try{
+            SimpleNode node = Procedure();
+            sendTree(node);
+
+            // node.dump("");
+
+//                System.out.println("-----sentences-----");
+//                System.out.println("size = " + sentences.size());
+//                for (Sentence sentence : sentences) {
+//                    System.out.println("[Sentence]");
+//                    sentence.display();
+//                }
+//                System.out.println();
+//                System.out.println("variables:");
+//                for (Variable variable : variables)
+//                  System.out.println(variable.getName() + " "
+//                    + variable.getType() + " " + variable.getVal());
+//                System.out.println();
+
+          }catch(ParseException e)
+          {
+            sendErrorMsg(new ErrorType(2,e.getMessage()));
+          }
+        ErrorType err = Generator.generate_code(this, sentences);
+        if (err.errortype == 2) {
+            onGenFailure(err);
+        }
+        }
+
+        public void onGenSuccess(ArrayList<String> code) throws IOException {
+            System.out.println("Generate Success");
+            System.out.println(code);
+            sendTargetCode(code);
+            Simulator.simulate(this, code);
+        }
+
+        public void onGenFailure(ErrorType err) throws IOException {
+            System.out.println("Generate Failure");
+            err.display();
+            sendErrorMsg(err);
+        }
+
+        public void sendErrorMsg(ErrorType err) throws IOException {
+            Message msg = new Message(err);
+            WebSocket.sendMessage(this, new Gson().toJson(msg));
+        }
+
+        public void sendTargetCode(ArrayList<String> code) throws IOException {
+          Message msg = new Message(code);
+          WebSocket.sendMessage(this, new Gson().toJson(msg));
+        }
+
+        public void sendTree(SimpleNode tree) throws IOException {
+                Message msg = new Message(tree);
+		        Gson gson = new GsonBuilder().excludeFieldsWithoutExposeAnnotation().create();
+                WebSocket.sendMessage(this, gson.toJson(msg));
+        }
+
+        public void sendMsg(Operation oper) throws IOException {
+            Message msg = new Message(oper);
+            WebSocket.sendMessage(this, new Gson().toJson(msg));
+        }
+
+        public void finish() throws IOException {
+            WebSocket.sendMessage(this, "finish");
+        }
+	}
+
+PARSER_END(ABC_compiler)
+
+SKIP: {
+    " "
+|	"\t"
+|	"\r"
+| "\n"
+|	"\r\n"
+| <"//" (~["\n","\r"])* ("\n"|"\r"|"\r\n")>
+| <"/*" (~["*"])* "*" (~["/"] (~["*"])* "*")* "/">
+}
+
+TOKEN: {// key words
+    <DEFINE: "#define">
+|   <MAIN:"main">
+|   <VOID:"void">
+|	<FUNC:"function">
+// type
+| <INT:"int">
+| <DOUBLE:"double">
+// control
+|	<IF:"if">
+|	<ELSE:"else">
+|	<WHILE:"while">
+}
+
+TOKEN: {// assignments
+	<ASSIGN: "=">
+| <SELF_ADD: "+=">
+| <SELF_SUB: "-=">
+| <SELF_MUL: "*=">
+| <SELF_DIV: "/=">
+}
+
+// TOKEN: {// unary operators
+//   <PLUS_ONE: "++">
+// | <MINUS_ONE: "--">
+// }
+
+TOKEN: {// Arithmetic operators
+	<ADD: "+">
+|	<SUB: "-">
+
+|	<MUL: "*">
+|	<DIV: "/">
+}
+
+TOKEN: {// Relational operators
+	<LT: "<">
+|	<LE: "<=">
+|	<MT: ">">
+|	<ME: ">=">
+|	<EQ: "==">
+|	<NE: "!=">
+}
+
+TOKEN: {// Delimiters
+	<SEMI_COL: ";">
+|	<COMMA: ",">
+|	<DOT: ".">
+|	<LBRACE: "{">
+|	<RBRACE: "}">
+|	<LPAR: "(">
+|	<RPAR: ")">
+}
+
+TOKEN: {// object
+	<CAR: "Car">
+|	<TEAM: "Team">
+//|	<TASK: "Task">
+}
+
+TOKEN: {// action
+	<FORWARD: "Forward">
+|	<BACK: "Back">
+|	<ROTATE: "Rotate">
+|	<MOVE_TO: "MoveTo">
+|	<BRAKE: "Brake">
+|	<WAIT: "Wait">
+|	<OBSTACLE: "Obstacle">
+|	<X: "x">
+|	<Y: "y">
+|	<DIR: "dir">
+|	<SENSOR: "Sensor">
+|	<REPORT: "Report">
+| <TEAM_ADD:"add">
+| <TEAM_REMOVE:"remove">
+}
+
+TOKEN: {// action param
+    <SENSOR_FIRE: "SENSOR_FIRE">
+|   <SENSOR_LIGHT: "SENSOR_LIGHT">
+|   <SENSOR_SHAKE: "SENSOR_SHAKE">
+|   <SENSOR_PLANE: "SENSOR_PLANE">
+|   <SENSOR_GAS: "SENSOR_GAS">
+}
+
+TOKEN: {<#LETTER: ["a"-"z", "A"-"Z"]>}
+TOKEN: {<#DIGIT: ["0"-"9"]>}
+TOKEN: {<#FRAC: "."(<DIGIT>)+>}
+TOKEN: {<#CHARACTER: <LETTER>|<DIGIT>|"_">}
+TOKEN: {<ID: (<LETTER> | "_") (<CHARACTER>)*>}
+TOKEN: {<INT_NUM: (<DIGIT>)+>}
+TOKEN: {<DOUBLE_NUM: (<DIGIT>)+ <FRAC>>}
+TOKEN: {<ERROR:~[]>}
+
+
+SimpleNode Procedure()#Root:{}
+{
+    ( Define() )*
+  ( Statement(ABC_Constant.NORMAL_STMT) | FunctionDef())*
+  MainFunction()
+  <EOF>
+  { return jjtThis; }
+}
+
+void Define():
+{
+    Token t;
+}
+{
+    <DEFINE> t = <ID> IntLiteralValue()
+    {
+        Variable newVar = new Variable(t.image, ABC_Constant.INT, scope);
+        if(variables.size()!=0)
+        {
+          if (funcMap.containsKey(t.toString()))
+            throw new ParseException("Error: variable '"+t.toString()+"' the name has been used for a function.");
+          for(Variable v:variables)
+          {
+            if(t.image.equals(v.getName()) && v.getScope() <= scope)
+              throw new ParseException("Error: variable '"+t.toString()+"' the name has been used for a variable.");
+          }
+        }
+        ASTIntLiteralValue child = (ASTIntLiteralValue)jjtThis.jjtGetChild(0);
+        newVar.setVal(String.valueOf(child.getVal()));
+        variables.add(newVar);
+    }
+}
+
+
+void MainFunction():{}
+{
+  <VOID> <MAIN> <LPAR> <RPAR>
+  Block()
+}
+
+void Block():
+{
+  scope++;
+}
+{
+  <LBRACE>
+  (
+    Statement(ABC_Constant.NORMAL_STMT)
+  )*
+  <RBRACE>
+  { Util.closeScope(this); scope--; }
+}
+
+void FunctionDef():
+{
+  String funcName = "";
+}
+{
+    try{
+  <FUNC> funcName = <ID>.image <LPAR><RPAR>
+  <LBRACE> { scope++; }
+  ( Action() <SEMI_COL>)*
+  <RBRACE>
+  }catch (Exception e) {
+      System.out.println(e.toString());
+      sendErrorMsg(new ErrorType(2,e.getMessage()));
+      // Token t;
+      // do {
+      //   t = getNextToken();
+      // } while (t.kind != RBRACE);
+    }
+  {
+    try {
+    boolean funcHasDefinedByVal=false;
+    for(Variable v:variables)
+    {
+      if(funcName.equals(v.getName()) && v.getScope() <= scope)
+        funcHasDefinedByVal=true;
+    }
+    if (funcMap.containsKey(funcName))
+      throw new ParseException("Error: function '"+funcName+"' the name has been used for a function.");
+    else if (funcHasDefinedByVal)
+      throw new ParseException("Error: function '"+funcName+"' the name has been used for a variable.");
+    else{
+      ArrayList<Command> funcCommands = new ArrayList<Command>();
+      for (int i = 0; i < jjtThis.jjtGetNumChildren(); i++) {
+        ASTAction action = (ASTAction) jjtThis.jjtGetChild(i);
+        funcCommands.add(
+          new Command(0, 0, action.getName(),
+            action.getFuncName(), action.getParamList()));
+      }
+      funcMap.put(funcName, funcCommands);
+    }
+    Util.closeScope(this);
+     scope--;
+     }catch (Exception e) {
+           System.out.println(e.toString());
+           sendErrorMsg(new ErrorType(2,e.getMessage()));
+           // Token t;
+           // do {
+           //   t = getNextToken();
+           // } while (t.kind != RBRACE);
+         }
+  }
+}
+
+void IfConditionStatement(int type):
+{
+    Sentence execStmt;
+}
+{
+    <IF><LPAR>Condition(ABC_Constant.IF_STMT)<RPAR>
+    <LBRACE> {scope++;}
+    (
+        Statement(ABC_Constant.IF_STMT)
+    )*
+    <RBRACE>
+    {
+        jjtThis.setCondition((ASTCondition)jjtThis.jjtGetChild(0));
+        for (int i = 1; i < jjtThis.jjtGetNumChildren(); i++) {
+            ASTStatement child = (ASTStatement) jjtThis.jjtGetChild(i);
+            System.out.println("stmt: " + new Gson().toJson(child.getCommand()));
+            if (child.getCommand().getFunctionName() == ABC_Constant.FUNCTION)
+                  Util.addExecStmt(this, jjtThis,
+                    child.getCommand().getMyFuncName(),
+                    child.getCommand().getObjectName(),
+                    child.getCommand().getObjectID());
+                else
+                  jjtThis.addExecStmt(this, child);
+        }
+//        jjtThis.toSentence().display();
+//        jjtThis.outputIfStatement();
+        sentences.add(jjtThis.toSentence());
+        Util.closeScope(this);
+        scope--;
+    }
+}
+
+void WhileConditionStatement(int type):
+{
+    Sentence execStmt;
+}
+{
+    <WHILE><LPAR>Condition(ABC_Constant.WHILE_STMT)<RPAR>
+    <LBRACE> {scope++;}
+    (
+        Statement(ABC_Constant.WHILE_STMT)
+    )*
+    <RBRACE>
+    {
+        jjtThis.setCondition((ASTCondition)jjtThis.jjtGetChild(0));
+        for (int i = 1; i < jjtThis.jjtGetNumChildren(); i++) {
+            ASTStatement child = (ASTStatement) jjtThis.jjtGetChild(i);
+            if (child.getCommand().getFunctionName() == ABC_Constant.FUNCTION)
+                  Util.addExecStmt(this, jjtThis,
+                    child.getCommand().getMyFuncName(),
+                    child.getCommand().getObjectName(),
+                    child.getCommand().getObjectID());
+                else
+                  jjtThis.addExecStmt(this, child);
+        }
+//        jjtThis.outputWhileStatement();
+        sentences.add(jjtThis.toSentence());
+        Util.closeScope(this);
+        scope--;
+    }
+}
+
+void Condition(int type):
+{}
+{
+    BoolVariable(type)
+    (  <LT>{jjtThis.setOperator(ABC_Constant.LESS_THAN);}
+     | <LE>{jjtThis.setOperator(ABC_Constant.LESS_EQUAL);}
+     | <MT>{jjtThis.setOperator(ABC_Constant.MORE_THAN);}
+     | <ME>{jjtThis.setOperator(ABC_Constant.MORE_EQUAL);}
+     | <EQ>{jjtThis.setOperator(ABC_Constant.EQUAL);}
+     )
+    BoolVariable(type)
+    {
+      jjtThis.setLeft(((ASTBoolVariable)jjtThis.jjtGetChild(0)).getVal());
+      jjtThis.setRight(((ASTBoolVariable)jjtThis.jjtGetChild(1)).getVal());
+    }
+}
+
+void BoolVariable(int type):
+{}
+{
+    Expression()
+    {
+        jjtThis.setVal(((ASTExpression)jjtThis.jjtGetChild(0)).toSentence(this));
+//        jjtThis.outputStatement();
+        //sentences.add(jjtThis.toExprSentence());
+    }
+|   ABCOperation(type)
+    {
+        jjtThis.setVal(((ASTABCOperation)jjtThis.jjtGetChild(0)).toSentence(this));
+    }
+}
+
+void Statement(int type):
+{
+    ASTABCOperation operation;
+}
+{
+    try{
+    (
+        (
+             Declaration() {jjtThis.setStatementType(ABC_Constant.DECLARATION);}
+         |   COperation() {jjtThis.setStatementType(ABC_Constant.COPERATION);}
+         |   operation = ABCOperation(type)
+            {
+                jjtThis.setStatementType(ABC_Constant.ABCOPERATION);
+                jjtThis.setCommand(operation.toCommand());
+            }
+        )
+        <SEMI_COL>
+    )
+    |   IfConditionStatement(type)
+    |   WhileConditionStatement(type)
+    }catch (Exception e) {
+        System.out.println("Exception: " + e.toString());
+        sendErrorMsg(new ErrorType(2,e.getMessage()));
+        Token t;
+        do {
+          t = getNextToken();
+        } while (t.kind != SEMI_COL);
+  }
+
+}
+
+// for Declaration
+void Declaration():
+{
+  int type;
+}
+{
+  type = Type()
+  IdList(type)
+}
+
+int Type()#void:
+{}
+{
+  <INT> {return ABC_Constant.INT;}
+| <DOUBLE> {return ABC_Constant.DOUBLE;}
+
+}
+
+void IdList(int type):
+{
+  Token t;
+}
+{
+  t = <ID>
+  {
+      if (funcMap.containsKey(t.toString()))
+        throw new ParseException("Error: variable '"+t.toString()+"' the name has been used for a function.");
+      for(Variable v:variables)
+      {
+        if(t.toString().equals(v.getName()) && v.getScope() <= scope)
+          throw new ParseException("Error: variable '"+t.toString()+"' the name has been used for a variable.");
+      }
+      variables.add(new Variable(t.toString(), type, scope));
+  }
+  (
+    <COMMA> t = <ID>
+    {
+      if (funcMap.containsKey(t.toString()))
+        throw new ParseException("Error: variable '"+t.toString()+"' the name has been used for a function.");
+      for(Variable v:variables)
+      {
+        if(t.toString().equals(v.getName()) && v.getScope() <= scope)
+          throw new ParseException("Error: variable '"+t.toString()+"' the name has been used for a variable.");
+      }
+      variables.add(new Variable(t.toString(), type, scope));
+    }
+  )*
+}
+
+// for COperation
+void COperation():
+{
+  Token t;
+  int oper;
+}
+{
+  t = <ID>
+  oper = AssignOperator()
+  Expression()
+  {
+    ASTExpression expression = (ASTExpression) jjtThis.jjtGetChild(0);
+    for (Variable variable : variables)
+      if (variable.getName().equals(t.image)) {
+        if (variable.getType() == ABC_Constant.INT) {
+          int val;
+          try {
+            val = Integer.valueOf(variable.getVal());
+          } catch (NumberFormatException e) {
+            val = 0;
+          }
+          switch (oper) {
+            case ABC_Constant.ASSIGN: val = Util.forceInt(this, expression.getVal()); break;
+            case ABC_Constant.SELF_ADD: val += Util.forceInt(this, expression.getVal()); break;
+            case ABC_Constant.SELF_SUB: val -= Util.forceInt(this, expression.getVal()); break;
+            case ABC_Constant.SELF_MUL: val *= Util.forceInt(this, expression.getVal()); break;
+            case ABC_Constant.SELF_DIV: val /= Util.forceInt(this, expression.getVal()); break;
+          }
+          variable.setVal(String.valueOf(val));
+        } else if (variable.getType() == ABC_Constant.DOUBLE) {
+          double val;
+          try {
+            val = Double.valueOf(variable.getVal());
+          } catch (Exception e) {
+            val = 0.0;
+          }
+          switch (oper) {
+            case ABC_Constant.ASSIGN: val = Double.valueOf(expression.getVal()); break;
+            case ABC_Constant.SELF_ADD: val += Double.valueOf(expression.getVal()); break;
+            case ABC_Constant.SELF_SUB: val -= Double.valueOf(expression.getVal()); break;
+            case ABC_Constant.SELF_MUL: val *= Double.valueOf(expression.getVal()); break;
+            case ABC_Constant.SELF_DIV: val /= Double.valueOf(expression.getVal()); break;
+          }
+          variable.setVal(String.valueOf(val));
+        } else {
+          throw new ParseException("Error: variable type '"+variable.getType()+"' isn't specified.");
+        }
+      }
+  }
+}
+
+int AssignOperator()#void:
+{}
+{
+  <ASSIGN> {return ABC_Constant.ASSIGN;}
+| <SELF_ADD> {return ABC_Constant.SELF_ADD;}
+| <SELF_SUB> {return ABC_Constant.SELF_SUB;}
+| <SELF_MUL> {return ABC_Constant.SELF_MUL;}
+| <SELF_DIV> {return ABC_Constant.SELF_DIV;}
+}
+
+// for ABCOperatin
+ASTABCOperation ABCOperation(int type):
+{}
+{
+  Object()
+  <DOT>
+  Action()
+  { 
+    jjtThis.setObject((ASTObject) jjtThis.jjtGetChild(0)); 
+    jjtThis.setAction((ASTAction) jjtThis.jjtGetChild(1));
+//    jjtThis.outputStatement();
+    if (type == ABC_Constant.NORMAL_STMT) {
+        if (jjtThis.getFunctionName() == ABC_Constant.FUNCTION)
+              Util.addFuncSentence(this,
+                jjtThis.getMyFuncName(), jjtThis.getObjectName(), jjtThis.getObjectID());
+            else
+              sentences.add(jjtThis.toSentence(this));
+    }
+    return jjtThis;
+  }
+}
+
+// for Object
+void Object():
+{
+  Token idToken;
+}
+{
+	ObjectName() <LPAR> idToken = <INT_NUM> <RPAR>
+  {
+    ASTObjectName child = (ASTObjectName) jjtThis.jjtGetChild(0);
+    int val = child.getVal();
+    jjtThis.setName(child.getVal());
+    jjtThis.setObjectId(Integer.valueOf(idToken.image));
+  }
+}
+
+void ObjectName():
+{}
+{
+	<CAR> {jjtThis.setVal(ABC_Constant.CAR);}
+|	<TEAM> {jjtThis.setVal(ABC_Constant.TEAM);}
+//|	<TASK> {jjtThis.setVal(ABC_Constant.TASK);}
+}
+
+// for Action
+void Action():
+{}
+{
+	ActionName() <LPAR> ActionParams() <RPAR>
+  {
+    ASTActionName nameChild = (ASTActionName) jjtThis.jjtGetChild(0);
+    jjtThis.setName(nameChild.getType());
+    if (nameChild.getType() == ABC_Constant.FUNCTION)
+      jjtThis.setFuncName(nameChild.getName());
+    ASTActionParams paramChild = (ASTActionParams) jjtThis.jjtGetChild(1);
+    jjtThis.setParamList(paramChild.getParamList());
+  }
+}
+
+void ActionName():
+{
+  Token t;
+}
+{
+	<FORWARD> {jjtThis.setType(ABC_Constant.FORWARD);}
+|	<BACK> {jjtThis.setType(ABC_Constant.BACK);}
+|	<ROTATE> {jjtThis.setType(ABC_Constant.ROTATE);}
+|	<MOVE_TO> {jjtThis.setType(ABC_Constant.MOVE_TO);}
+|	<BRAKE> {jjtThis.setType(ABC_Constant.BRAKE);}
+|	<WAIT> {jjtThis.setType(ABC_Constant.WAIT);}
+|	<OBSTACLE> {jjtThis.setType(ABC_Constant.OBSTACLE);}
+|   <X> {jjtThis.setType(ABC_Constant.X);}
+|   <Y> {jjtThis.setType(ABC_Constant.Y);}
+|   <DIR> {jjtThis.setType(ABC_Constant.DIR);}
+|   <SENSOR> {jjtThis.setType(ABC_Constant.SENSOR);}
+|   <REPORT> {jjtThis.setType(ABC_Constant.REPORT);}
+| <TEAM_ADD> {jjtThis.setType(ABC_Constant.TEAM_ADD);}
+| <TEAM_REMOVE> {jjtThis.setType(ABC_Constant.TEAM_REMOVE);}
+| t = <ID>  {jjtThis.setType(ABC_Constant.FUNCTION); jjtThis.setName(t.image);}
+
+}
+
+void ActionParams():
+{}
+{
+  (
+    Expression() (<COMMA> Expression())*
+  )
+  {
+    for (int i = 0; i < jjtThis.jjtGetNumChildren(); i++) {
+      ASTExpression child = (ASTExpression) jjtThis.jjtGetChild(i);
+      jjtThis.addParam(child.getVal());
+    }
+  }
+  | {}
+}
+
+// general
+void Expression():
+{
+  ASTTerm term;
+  ASTExpression_p expression_p;
+  ASTExpression_p_ne expression_p_ne;
+}
+{
+  term=Term() 
+  expression_p=Expression_p(ABC_Constant.NONE,"",ABC_Constant.NONE,term.getVal(),term.getType())
+  {
+    jjtThis.setVal(expression_p.getSynVal());
+    jjtThis.setType(expression_p.getSynType());
+//    System.out.println("normal");
+//     System.out.println("expression "+jjtThis.getVal());
+    // return jjtThis;
+  }
+  | expression_p_ne=Expression_p_ne(ABC_Constant.NONE,"",ABC_Constant.NONE,"",ABC_Constant.NONE)
+      {
+        jjtThis.setVal(expression_p_ne.getSynVal());
+        jjtThis.setType(expression_p_ne.getSynType());
+//         System.out.println("expression "+jjtThis.getVal());
+        // return jjtThis;
+      }
+  | <SENSOR_FIRE> {jjtThis.setVal(ABC_Constant.SENSOR_FIRE); jjtThis.setType(ABC_Constant.INT);}
+  | <SENSOR_LIGHT> {jjtThis.setVal(ABC_Constant.SENSOR_LIGHT); jjtThis.setType(ABC_Constant.INT);}
+  | <SENSOR_SHAKE> {jjtThis.setVal(ABC_Constant.SENSOR_SHAKE); jjtThis.setType(ABC_Constant.INT);}
+  | <SENSOR_PLANE> {jjtThis.setVal(ABC_Constant.SENSOR_PLANE); jjtThis.setType(ABC_Constant.INT);}
+  | <SENSOR_GAS> {jjtThis.setVal(ABC_Constant.SENSOR_GAS); jjtThis.setType(ABC_Constant.INT);}
+}
+
+ASTExpression_p Expression_p(int oper,String termVal,int termType,
+                            String broVal,int broType):
+{
+  int sonTermOper;
+  ASTTerm sonTerm;
+  ASTExpression_p sonExpression_p;
+  if(oper==ABC_Constant.NONE){
+    jjtThis.setInhType(broType);
+    jjtThis.setInhVal(broVal);
+  }else{
+    if(oper==ABC_Constant.ADD){
+      if(broType==ABC_Constant.INT&&termType==ABC_Constant.INT)
+      {
+        jjtThis.setInhType(ABC_Constant.INT);
+        int res=Integer.valueOf(broVal)+Integer.valueOf(termVal);
+        jjtThis.setInhVal(String.valueOf(res));
+      }
+      else if(broType==ABC_Constant.INT)
+      {
+        jjtThis.setInhType(ABC_Constant.DOUBLE);
+        double res=Integer.valueOf(broVal)+Double.valueOf(termVal);
+        jjtThis.setInhVal(String.valueOf(res));
+      }
+      else if(termType==ABC_Constant.INT)
+      {
+        jjtThis.setInhType(ABC_Constant.DOUBLE);
+        double res=Double.valueOf(broVal)+Integer.valueOf(termVal);
+        jjtThis.setInhVal(String.valueOf(res));
+      }
+      else
+      {
+        jjtThis.setInhType(ABC_Constant.DOUBLE);
+        double res=Double.valueOf(broVal)+Double.valueOf(termVal);
+        jjtThis.setInhVal(String.valueOf(res));
+      }
+    }
+    else if(oper==ABC_Constant.SUB){
+      if(broType==ABC_Constant.INT&&termType==ABC_Constant.INT)
+      {
+        jjtThis.setInhType(ABC_Constant.INT);
+        int res=Integer.valueOf(termVal)-Integer.valueOf(broVal);
+        jjtThis.setInhVal(String.valueOf(res));
+      }
+      else if(termType==ABC_Constant.DOUBLE && broType==ABC_Constant.INT)
+      {
+        jjtThis.setInhType(ABC_Constant.DOUBLE);
+        double res=Double.valueOf(termVal)-Integer.valueOf(broVal);
+        jjtThis.setInhVal(String.valueOf(res));
+      }
+      else if(termType==ABC_Constant.INT && broType==ABC_Constant.DOUBLE)
+      {
+        jjtThis.setInhType(ABC_Constant.DOUBLE);
+        double res=Integer.valueOf(termVal)-Double.valueOf(broVal);
+        jjtThis.setInhVal(String.valueOf(res));
+      }
+      else if(termType==ABC_Constant.DOUBLE && broType==ABC_Constant.DOUBLE)
+      {
+        jjtThis.setInhType(ABC_Constant.DOUBLE);
+        double res=Double.valueOf(termVal)-Double.valueOf(broVal);
+        jjtThis.setInhVal(String.valueOf(res));
+      }
+      else if (termType==ABC_Constant.NONE && broType==ABC_Constant.INT)
+      {
+          jjtThis.setInhType(ABC_Constant.INT);
+          int res = -Integer.valueOf(broVal);
+          jjtThis.setInhVal(String.valueOf(res));
+      }
+      else if (termType==ABC_Constant.NONE && broType==ABC_Constant.DOUBLE)
+      {
+        jjtThis.setInhType(ABC_Constant.DOUBLE);
+        double res = -Double.valueOf(broVal);
+        jjtThis.setInhVal(String.valueOf(res));
+      }
+      else if (termType==ABC_Constant.NONE && broType == ABC_Constant.NONE)
+      {
+          jjtThis.setInhType(ABC_Constant.NONE);
+          jjtThis.setInhVal("");
+      }
+    }
+  }
+}
+{
+  sonTermOper=TermOp() 
+  sonTerm=Term() 
+  sonExpression_p=Expression_p(sonTermOper,jjtThis.getInhVal(),jjtThis.getInhType(),
+    sonTerm.getVal(),sonTerm.getType())
+  {
+    jjtThis.setSynVal(sonExpression_p.getSynVal());
+    jjtThis.setSynType(sonExpression_p.getSynType());
+    return jjtThis;
+  }
+   | 
+  {
+    jjtThis.setSynVal(jjtThis.getInhVal());
+    jjtThis.setSynType(jjtThis.getInhType());
+    return jjtThis;
+  }
+ }
+
+ASTExpression_p_ne Expression_p_ne(int oper,String termVal,int termType,
+                            String broVal,int broType):
+{
+  int sonTermOper;
+  ASTTerm sonTerm;
+  ASTExpression_p sonExpression_p;
+  if(oper==ABC_Constant.NONE){
+    jjtThis.setInhType(broType);
+    jjtThis.setInhVal(broVal);
+  }else{
+    if(oper==ABC_Constant.ADD){
+      if(broType==ABC_Constant.INT&&termType==ABC_Constant.INT)
+      {
+        jjtThis.setInhType(ABC_Constant.INT);
+        int res=Integer.valueOf(broVal)+Integer.valueOf(termVal);
+        jjtThis.setInhVal(String.valueOf(res));
+      }
+      else if(broType==ABC_Constant.INT)
+      {
+        jjtThis.setInhType(ABC_Constant.DOUBLE);
+        double res=Integer.valueOf(broVal)+Double.valueOf(termVal);
+        jjtThis.setInhVal(String.valueOf(res));
+      }
+      else if(termType==ABC_Constant.INT)
+      {
+        jjtThis.setInhType(ABC_Constant.DOUBLE);
+        double res=Double.valueOf(broVal)+Integer.valueOf(termVal);
+        jjtThis.setInhVal(String.valueOf(res));
+      }
+      else
+      {
+        jjtThis.setInhType(ABC_Constant.DOUBLE);
+        double res=Double.valueOf(broVal)+Double.valueOf(termVal);
+        jjtThis.setInhVal(String.valueOf(res));
+      }
+    }
+    else if(oper==ABC_Constant.SUB){
+      if(broType==ABC_Constant.INT&&termType==ABC_Constant.INT)
+      {
+        jjtThis.setInhType(ABC_Constant.INT);
+        int res=Integer.valueOf(termVal)-Integer.valueOf(broVal);
+        jjtThis.setInhVal(String.valueOf(res));
+      }
+      else if(termType==ABC_Constant.DOUBLE && broType==ABC_Constant.INT)
+      {
+        jjtThis.setInhType(ABC_Constant.DOUBLE);
+        double res=Double.valueOf(termVal)-Integer.valueOf(broVal);
+        jjtThis.setInhVal(String.valueOf(res));
+      }
+      else if(termType==ABC_Constant.INT && broType==ABC_Constant.DOUBLE)
+      {
+        jjtThis.setInhType(ABC_Constant.DOUBLE);
+        double res=Integer.valueOf(termVal)-Double.valueOf(broVal);
+        jjtThis.setInhVal(String.valueOf(res));
+      }
+      else if(termType==ABC_Constant.DOUBLE && broType==ABC_Constant.DOUBLE)
+      {
+        jjtThis.setInhType(ABC_Constant.DOUBLE);
+        double res=Double.valueOf(termVal)-Double.valueOf(broVal);
+        jjtThis.setInhVal(String.valueOf(res));
+      }
+      else if (termType==ABC_Constant.NONE && broType==ABC_Constant.INT)
+      {
+          jjtThis.setInhType(ABC_Constant.INT);
+          int res = -Integer.valueOf(broVal);
+          jjtThis.setInhVal(String.valueOf(res));
+      }
+      else if (termType==ABC_Constant.NONE && broType==ABC_Constant.DOUBLE)
+      {
+        jjtThis.setInhType(ABC_Constant.DOUBLE);
+        double res = -Double.valueOf(broVal);
+        jjtThis.setInhVal(String.valueOf(res));
+      }
+      else if (termType==ABC_Constant.NONE && broType == ABC_Constant.NONE)
+      {
+          jjtThis.setInhType(ABC_Constant.NONE);
+          jjtThis.setInhVal("");
+      }
+    }
+  }
+}
+{
+  sonTermOper=TermOp()
+  sonTerm=Term()
+  sonExpression_p=Expression_p(sonTermOper,jjtThis.getInhVal(),jjtThis.getInhType(),
+    sonTerm.getVal(),sonTerm.getType())
+  {
+    jjtThis.setSynVal(sonExpression_p.getSynVal());
+    jjtThis.setSynType(sonExpression_p.getSynType());
+    return jjtThis;
+  }
+ }
+
+
+int TermOp():
+{}
+{
+    <ADD>{jjtThis.setVal(ABC_Constant.ADD); return jjtThis.getVal();}
+|   <SUB>{jjtThis.setVal(ABC_Constant.SUB); return jjtThis.getVal();}
+}
+
+ASTTerm Term():
+{
+  ASTFactor factor;
+  ASTTerm_p child;
+}
+{
+  factor = Factor()
+  child = Term_p(ABC_Constant.NONE, "", ABC_Constant.NONE, factor.getVal(), factor.getType())
+  {
+    jjtThis.setVal(child.getSynVal());
+    jjtThis.setType(child.getSynType());
+    return jjtThis;
+  }
+}
+
+ASTTerm_p Term_p(int oper, String faInh, int faType,
+                      String factorVal, int factorType):
+{
+  int sonOper;
+  ASTFactor sonFactor;
+  ASTTerm_p sonTerm_p;
+
+   if(faType == ABC_Constant.NONE) {
+    jjtThis.setInhType(factorType);
+    jjtThis.setInhVal(factorVal);
+   } else {
+    if (oper == ABC_Constant.MUL)
+    {
+      if(factorType==ABC_Constant.INT&&faType==ABC_Constant.INT)
+      {
+        jjtThis.setInhType(ABC_Constant.INT);
+        int res=Integer.valueOf(factorVal)*Integer.valueOf(faInh);
+        jjtThis.setInhVal(String.valueOf(res));
+      }
+      else if(factorType==ABC_Constant.INT)
+      {
+        jjtThis.setInhType(ABC_Constant.DOUBLE);
+        double res=Integer.valueOf(factorVal)*Double.valueOf(faInh);
+        jjtThis.setInhVal(String.valueOf(res));
+      }
+      else if(faType==ABC_Constant.INT)
+      {
+        jjtThis.setInhType(ABC_Constant.DOUBLE);
+        double res=Double.valueOf(factorVal)*Integer.valueOf(faInh);
+        jjtThis.setInhVal(String.valueOf(res));
+      }
+      else
+      {
+        jjtThis.setInhType(ABC_Constant.DOUBLE);
+        double res=Double.valueOf(factorVal)*Double.valueOf(faInh);
+        jjtThis.setInhVal(String.valueOf(res));
+      }
+    }
+    if(oper == ABC_Constant.DIV)
+    {
+      if(factorType==ABC_Constant.INT&&faType==ABC_Constant.INT)
+      {
+        jjtThis.setInhType(ABC_Constant.INT);
+        int res=Integer.valueOf(faInh)/Integer.valueOf(factorVal);
+        jjtThis.setInhVal(String.valueOf(res));
+      }
+      else if(factorType==ABC_Constant.INT)
+      {
+        jjtThis.setInhType(ABC_Constant.DOUBLE);
+        double res=Double.valueOf(faInh)/Integer.valueOf(factorVal);
+        jjtThis.setInhVal(String.valueOf(res));
+      }
+      else if(faType==ABC_Constant.INT)
+      {
+        jjtThis.setInhType(ABC_Constant.DOUBLE);
+        double res=Integer.valueOf(faInh)/Double.valueOf(factorVal);
+        jjtThis.setInhVal(String.valueOf(res));
+      }
+      else
+      {
+        jjtThis.setInhType(ABC_Constant.DOUBLE);
+        double res=Double.valueOf(faInh)/Double.valueOf(factorVal);
+        jjtThis.setInhVal(String.valueOf(res));
+      }
+    }
+   } 
+}
+
+{
+  sonOper = FactorOp()
+  sonFactor = Factor()
+  sonTerm_p = Term_p(sonOper, jjtThis.getInhVal(), jjtThis.getInhType(), 
+                  sonFactor.getVal(), sonFactor.getType())
+  {
+    jjtThis.setSynType(sonTerm_p.getSynType());
+    jjtThis.setSynVal(sonTerm_p.getSynVal());
+    return jjtThis;
+  }
+| {
+      int fft_inh_type=jjtThis.getInhType();
+      String fft_inh_val=jjtThis.getInhVal();
+      jjtThis.setSynType(fft_inh_type);
+      jjtThis.setSynVal(fft_inh_val);
+      return jjtThis;
+  }
+}
+
+int FactorOp():
+{}
+{
+    <MUL>{jjtThis.setVal(ABC_Constant.MUL); return ABC_Constant.MUL;}
+|   <DIV>{jjtThis.setVal(ABC_Constant.DIV); return ABC_Constant.DIV;}
+}
+
+ASTFactor Factor():
+{}
+{
+  <LPAR> Expression() <RPAR>
+  {
+    ASTExpression fechild=(ASTExpression) jjtThis.jjtGetChild(0);
+    String feval=fechild.getVal();
+    int fetype=fechild.getType();
+    jjtThis.setVal(feval);
+    jjtThis.setType(fetype);
+    return jjtThis;
+  }
+| Value()
+  {
+    ASTValue fvchild=(ASTValue) jjtThis.jjtGetChild(0);
+    String fvval=fvchild.getVal();
+    int fvtype=fvchild.getType();
+    jjtThis.setVal(fvval);
+    jjtThis.setType(fvtype);
+    return jjtThis;
+  }
+}
+
+void Value():
+{
+  Token t;
+}
+{
+  IntLiteralValue()
+  {
+    ASTIntLiteralValue vichild = (ASTIntLiteralValue) jjtThis.jjtGetChild(0);
+    int vival = vichild.getVal();
+    jjtThis.setType(ABC_Constant.INT);
+    jjtThis.setVal(String.valueOf(vival));
+  }
+| DoubleLiteralValue()
+   {
+     ASTDoubleLiteralValue vdchild = (ASTDoubleLiteralValue) jjtThis.jjtGetChild(0);
+     double vdval=vdchild.getVal();
+     jjtThis.setType(ABC_Constant.DOUBLE);
+     jjtThis.setVal(String.valueOf(vdval));
+   }
+| t = <ID>
+  {
+    boolean found = false;
+    for (Variable variable : variables) 
+      if (variable.getName().equals((t.image))) {
+        if(variable.getVal()==null)
+        {
+          String mes="Error: variable '"+t.toString()+"' isn't initialized.";
+         throw new ParseException(mes); 
+        }
+          jjtThis.setType(variable.getType());
+          jjtThis.setVal(variable.getVal());
+          found = true;
+      }
+    if (!found)
+    {
+      throw new ParseException("Error: variable '"+t.toString()+"' isn't defined. ");
+    }
+  }
+}
+
+void IntLiteralValue():
+{
+    Token t;
+}
+{
+  t = <INT_NUM>
+  { jjtThis.setVal(Integer.valueOf(t.image)); }
+}
+
+void DoubleLiteralValue():
+{
+    Token td;
+}
+{
+  td=<DOUBLE_NUM>
+  { jjtThis.setVal(Double.valueOf(td.image));}
+}
+
+
+
+
