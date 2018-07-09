@@ -1,0 +1,22 @@
+数据库
+raw_message 调试用
+
+car 记录小车状态
+car_id int 
+status bool 是否连接
+pos_id 当前驻留巡逻点
+
+完整版
+task
+task_id int
+car_id int
+task_status int //0 未发送 1 已发送，等待完成 2（单次任务）已完成 3 （循环任务）循环中
+task_cycle boolean 是否循环执行
+pos_id int
+wait_t int
+
+pos 巡逻点
+pos_id int 巡逻点编号
+pos_x float
+pos_y float
+pos_wait_num int 驻留小车数量

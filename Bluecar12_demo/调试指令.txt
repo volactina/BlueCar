@@ -1,0 +1,133 @@
+function avoid_obstacle(){
+  Rotate(90);
+  Forward(50);
+  Rotate(-90);
+  Forward(50);
+  Rotate(-90);
+  Forward(50);
+  Rotate(90);
+}
+
+while (Car(2).Obstacle()<50){
+  Car(2).Forward(10);
+}
+Car(2).Rotate(180);
+Car(2).avoid_obstalce();
+
+Car(2).avoid_obstacle(50);
+
+function avoid_obstalce(){
+int x=50;
+Rotate(90);
+  Forward(x);
+  Rotate(-90);
+  Forward(x);
+  Rotate(-90);
+  Forward(x);
+  Rotate(90);
+}
+
+PA1aB2bC1cp
+
+PA2aB1bC1cp
+
+PA1aB2bR1rp
+
+PA2aB1bR1rp
+
+PA1aB0bC1cp
+
+PA3aB0bC1cp
+
+
+PA3aB0bR1rp
+PA3aB0bR2rp
+
+2号小车确认帧
+PA0aB2bR0rp
+PA2aB0bR2rp
+PA2aB0bR3rp
+PA2aB0bR4rp
+
+PA2aB1bR1rp
+
+1号小车确认帧
+PA1aB0bR1rp
+PA1aB0bR2rp
+PA1aB0bR3rp
+PA1aB0bR4rp
+
+1号小车报告位置
+PA1aB0bC1cQU0uX0xY0yZ0zT0tqp
+PA1aB0bC2cQU0uX0xY0yZ45zT0tqp
+PA1aB0bC3cQU0uX20xY20yZ45zT0tqp
+PA1aB0bC4cQU0uX40xY40yZ45zT0tqp
+PA1aB0bC5cQU0uX20xY40yZ90zT0tqp
+PA1aB0bC6cQU0uX0xY40yZ0zT0tqp
+PA1aB0bC7cQU0uX0xY40yZ45zT0tqp
+PA1aB0bC8cQU0uX0xY40yZ90zT0tqp
+
+1号小车报告障碍物位置
+PA1aB0bC2cHU0uX-30xY-30yhp
+PA1aB0bC2cHU0uX30xY30yhp
+PA1aB0bC3cHU0uX11xY30yhp
+PA1aB0bC4cHU0uX31xY31yhp
+PA1aB0bC5cHU0uX29xY28yhp
+PA1aB0bC6cHU0uX25xY30yhp
+PA1aB0bC7cHU0uX30xY25yhp
+PA1aB0bC8cHU0uX26xY26yhp
+
+PA1aB0bC3cHU0uX30xY30yU0uX11xY30yU0uX31xY31yU0uX29xY28yU0uX25xY30yU0uX30xY25yU0uX26xY26yhp
+
+1号小车报告详细参数
+PA1aB0bC1cQU0uX-10xY10yZ20zT0tS100sS100sS100sS100sS1sS5sS0sS1sqp
+
+设置1号小车参数
+PA0aB1bC1cVU1uS100sU2uS100sU3uS100sU4uS100sU5uS0sU6uS5sU7uS0sU8uS1svp
+
+询问1号小车参数
+PA0aB1bC1cQU1uqp
+PA0aB1bC1cQU2uqp
+
+命令1号前进
+PA0aB1bC1cDU0uS100sdp
+
+测试1号小车测障
+假设障碍物距离20
+PA1ap
+PA1aB0bR1rp
+PA1aB0bC1cQU0uX0xY0yZ90zqp
+PA1aB0bC1cQU0uX0xY0yZ90zqp
+PA1aB0bC2cHU0uX0xY30yhp
+PA1aB0bC3cHU0uX-50xY-30yhp
+
+PA0ap
+PA0aB1bC1cDU0uS10sdp
+PA0aB1bC1cIJS3sN0nS3sjDU0uS10sdip
+PA0aB1bC1cDU1uZ20zdIJS3sN0nS3sjDU0uS10sdiDU3uSsdp
+PA0aB1bC1cFJS3sN0nS3sjDU0uS10sdfp
+PA0aB1bC1cFJET1tU0uU1ueN1nS30sjDU0uS10sdfp
+PA0aB1bC1cIJET1tU0uU1ueN1nS30sjDU0uS10sdip
+PA0aB1bC1cFJET1tU1uU1ueN2nS100sjDU0uS10sdfp
+（一）组网
+这要求任意辆小车都可以进行组网，在实际中使用若干辆小车进行实际的组网实现。小车之间可以进行的可靠的信息传递。
+（二）控制
+对小车使用自行设计的ABC（Arduino-Based Car Language）语言进行较为复杂的逻辑策略控制（围绕巡逻、搜索、无人交通和地形勘测的应用背景）。
+另外开发一个可以操控、调试、模拟小车的平台，这个平台需要能够可视化的显示小车的运动和障碍物的位置分布，另外这个平台需要提供从ABC语言到小车可执行指令集之间的编译。
+（三）编队协同
+若干辆小车之间要围绕巡逻、搜索、无人交通和地形勘测的应用背景进行一些能够被ABC语言表达的协同工作，这同时要求了需要扩展ABC语言的表达能力。
+
+
+2017年 11月：
+学习使用HMC5883L电子罗盘模块，尝试使用它来进行自动的误差校准（失败）。
+学习使用光电编码器，在直行的校准上取得了一定的效果。
+学习使用GPS模块，我们决定将项目的重点不再放在误差的自动校准上。
+学习使用HC-SR04超声波传感器和舵机。
+2017年12月：
+完善通讯指令集在Arduino主板中的实现，使得小车可以封装的向上提供接口。使用HC-05蓝牙与继电器模块完成3辆小车通过蓝牙的跳连组网通讯。学习使用各种液晶显示屏模块，其中使用OLED12864液晶模块收集超声波传感器数据进行了简单的人机交互图形化显示（后放弃）。
+我们决定暂时放弃蓝牙改用WIFI来进行组网。
+2018年1-2月： 
+烧写ESP8266WIFI模块使之成为TCP客户端，使用java搭建TCP服务端使两者之间能够通讯，进一步的使用多线程技术使得服务端可以与多个客户端通讯，并实现任意客户端之间的通讯。使ESP8266WIFI模块可以与Arduino主板进行稳定通信从而使得服务端可以抽象的直接与安置在小车上的Arduino主板直接通信。最后使用滑动窗口模型实现消息传递过程中的确认机制并规定通讯指令的指令头部从而实现任意辆小车通过WIFI进行组网可靠通讯。
+2018年3月：
+搭建小车操作平台，数据库设计与建表，可显示小车状态、可调式小车参数、可直接与小车通讯、可直接与小车通讯、可显示小车位置与障碍物分布的模拟图。
+将通讯指令集加入循环、选择、判断控制指令，ABC（Arduino-Based Car Language）语言显现雏形。
