@@ -70,3 +70,30 @@ void loop()
         */
     }
 }
+/*
+当一个模块怎么烧也烧不进去的时候，可以试着nodemcu-flasher-master win64版本来flash一下，断点重连再烧
+
+烧写模式接法
+GND GND
+GPI02 3.3V
+GPIO0 GND
+RXD
+TXD
+CH_PD 3.3V
+RST 3.3V
+VCC 3.3V
+注意：烧写模式在Arduino IDE下请选择NodeMCU 1.0(ESP-12E Module) 
+https://www.arduino.cn/thread-17895-1-1.html
+具体参数选择参考http://www.cnblogs.com/ticktack/p/8043344.html
+由于未知原因，电源使用功能转接板的话则会失败
+
+工作模式接法
+GND GND
+GPI02 3.3V
+GPIO0 悬空
+RXD
+TXD
+CH_PD 3.3V
+RST 3.3V
+VCC 3.3V
+*/
